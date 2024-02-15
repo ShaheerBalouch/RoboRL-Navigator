@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+    <model name="target_orientation_mark">
+        <static>true</static>
+        <link name="link">
+            <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+            <collision name="collision">
+                <geometry>
+                    <cylinder>
+                        <radius>0.000</radius>
+                        <length>0.00</length>
+                    </cylinder>
+                </geometry>
+            </collision>
+            <visual name="visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.008</radius>
+                        <length>0.08</length>
+                    </cylinder>
+                </geometry>
+                <material>
+                    <ambient>0.0 0.65 0.0 1</ambient>
+                    <diffuse>0.0 0.75 0.0 1</diffuse>
+                    <specular>0 0 0 0</specular>
+                    <emissive>0 0 0 1</emissive>
+                </material>
+            </visual>
+        </link>
+    </model>
+</sdf>

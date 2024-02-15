@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+    <model name="small_aim_sphere">
+        <static>true</static>
+        <link name="link">
+            <collision name="collision">
+                <geometry>
+                    <sphere>
+                        <radius>0.0</radius>
+                    </sphere>
+                </geometry>
+            </collision>
+            <visual name="visual">
+                <geometry>
+                    <sphere>
+                        <radius>0.01</radius>
+                    </sphere>
+                </geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/gazebo.material</uri>
+                        <name>Gazebo/Red</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model>
+</sdf>

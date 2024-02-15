@@ -1,0 +1,10 @@
+gymnasium==0.29.1
+matplotlib==3.7.2
+numpy==1.24.4
+pandas==2.0.3
+Pillow==10.0.0
+pybullet==3.2.5
+requests==2.31.0
+scipy==1.10.1
+stable-baselines3==2.1.0
+tensorboard==2.14.0

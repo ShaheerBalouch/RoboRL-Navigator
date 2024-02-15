@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+    <model name="{model_name}">
+        <link name="link">
+            <origin xyz="{origin_x} {origin_y} {origin_z}" rpy="0 0 0"/>
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>{size_x} {size_y} {size_z}</size>
+                    </box>
+                </geometry>
+                            <surface>
+                <friction>
+                    <ode>
+                        <mu>1.0</mu> <!-- Set the friction coefficient (mu) -->
+                        <mu2>1.0</mu2> <!-- Set the second friction coefficient (mu2) for viscous friction (optional) -->
+                    </ode>
+                </friction>
+                <!-- Additional contact parameters can be set here -->
+            </surface>
+            </collision>
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>{size_x} {size_y} {size_z}</size>
+                    </box>
+                </geometry>
+                <material>
+                    <ambient>0.0 0.0 0.65 1</ambient>
+                    <diffuse>0.0 0.0 0.75 1</diffuse>
+                    <specular>0 0 0 0</specular>
+                    <emissive>0 0 0 1</emissive>
+                </material>
+            </visual>
+            <mass value="1.0"/>
+            <inertia ixx="0.083333" ixy="0.0" ixz="0.0" iyy="0.083333" iyz="0.0" izz="0.083333"/>
+        </link>
+    </model>
+</sdf>
