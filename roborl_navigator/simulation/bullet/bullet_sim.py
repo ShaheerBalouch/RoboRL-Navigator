@@ -156,11 +156,20 @@ class BulletSim(Simulation):
     def loadURDF(self, body_name: str, **kwargs: Any) -> None:
         self._bodies_idx[body_name] = self.physics_client.loadURDF(**kwargs)
 
+    def loadObstacle(self, file_name: str, base_position: np.ndarray) -> None:
+        self.loadURDF(
+            body_name="object1",
+            fileName=file_name,
+            basePosition=base_position,
+            useFixedBase=True,
+        )
+
     # OBJECT MANAGER
     def create_scene(self) -> None:
         self.create_plane(z_offset=-0.4)
         self.create_table(length=1.3, width=2, height=0.1)
         self.create_sphere(np.zeros(3))
+        self.loadObstacle("objects/mug.urdf", np.array([0.45, 0.1, 0]))
         if self.orientation_task:
             self.create_orientation_mark(np.zeros(3))
 
@@ -239,7 +248,7 @@ class BulletSim(Simulation):
         visual_kwargs = {
             "radius": radius,
             "specularColor": np.zeros(3),
-            "rgbaColor": np.array([0.9, 0.1, 0.1, 0.75]),
+            "rgbaColor": np.array([1, 0.92, 0.016, 1]),
         }
         self.create_geometry(
             "target",
