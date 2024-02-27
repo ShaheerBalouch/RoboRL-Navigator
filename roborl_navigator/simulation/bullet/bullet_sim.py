@@ -156,20 +156,12 @@ class BulletSim(Simulation):
     def loadURDF(self, body_name: str, **kwargs: Any) -> None:
         self._bodies_idx[body_name] = self.physics_client.loadURDF(**kwargs)
 
-    def loadObstacle(self, file_name: str, base_position: np.ndarray) -> None:
-        self.loadURDF(
-            body_name="object1",
-            fileName=file_name,
-            basePosition=base_position,
-            useFixedBase=True,
-        )
-
     # OBJECT MANAGER
     def create_scene(self) -> None:
         self.create_plane(z_offset=-0.4)
         self.create_table(length=1.3, width=2, height=0.1)
         self.create_sphere(np.zeros(3))
-        self.loadObstacle("objects/mug.urdf", np.array([0.45, 0.1, 0]))
+        self.create_obstacle(length=0.05, width=0.05, height=0.1)
         if self.orientation_task:
             self.create_orientation_mark(np.zeros(3))
 
@@ -242,13 +234,21 @@ class BulletSim(Simulation):
             rgba_color=np.array([0.95, 0.95, 0.95, 1]),
         )
 
+    def create_obstacle(self, length: float, width: float, height: float) -> None:
+        self.create_box(
+            body_name="obstacle1",
+            half_extents=np.array([length, width, height]) / 2,
+            position=np.array([0.45, 0.0, height/2]),
+            rgba_color=np.array([0.9, 0.1, 0.1, 0.75]),
+        )
+
     def create_sphere(self, position: np.ndarray) -> None:
         """Create a sphere."""
         radius = 0.02
         visual_kwargs = {
             "radius": radius,
             "specularColor": np.zeros(3),
-            "rgbaColor": np.array([1, 0.92, 0.016, 1]),
+            "rgbaColor": np.array([0.0, 1.0, 0.0, 1.0]),
         }
         self.create_geometry(
             "target",
@@ -275,6 +275,24 @@ class BulletSim(Simulation):
             ghost=True,
             visual_kwargs=visual_kwargs,
         )
+
+    def get_distances(self):
+        robot_id = self._bodies_idx["panda"]
+        obstacle_id = self._bodies_idx["obstacle1"]
+        distances = []
+
+        closest_points = p.getClosestPoints(robot_id, obstacle_id, 10.0, linkIndexA=10)
+        if len(closest_points) == 0:
+            distances.append(10.0)
+        else:
+            distances.append(closest_points[0][8])  # 8th array position is the distance between both objects
+
+        return np.array(distances)
+
+    def is_collision(self, margin=0):
+        ds = self.get_distances()
+        return (ds < margin).any()
+
         # Target Box Orientation Lines for Debug
         # oid = self._bodies_idx["panda"]
         # line_length = 30  # Length of the lines

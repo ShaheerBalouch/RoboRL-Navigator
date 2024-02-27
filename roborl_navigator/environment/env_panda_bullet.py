@@ -53,6 +53,7 @@ class PandaBulletEnv(BaseEnv):
         self.temp = None
         self.pitch = None
         self.a = None
+        self.obstacle_collision_margin = 0.005
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[dict] = None
@@ -75,11 +76,20 @@ class PandaBulletEnv(BaseEnv):
                 self.sim.step()
 
         observation = self._get_obs()
-        # An episode is terminated if the agent has reached the target
-        terminated = bool(self.task.is_success(observation["achieved_goal"], self.task.get_goal()))
+        # An episode is terminated if the agent has reached the target or collided with an object
+
+        if self.sim.is_collision(self.obstacle_collision_margin):
+            # print("COLLISION HAPPENED")
+            terminated = True
+            info = {"is_success": False}
+        else:
+            terminated = bool(self.task.is_success(observation["achieved_goal"], self.task.get_goal()))
+            info = {"is_success": terminated}
+
         truncated = False
-        info = {"is_success": terminated}
-        reward = float(self.task.compute_reward(observation["achieved_goal"], self.task.get_goal(), info))
+        reward = float(self.task.compute_reward(observation["achieved_goal"], self.task.get_goal(), info,
+                                                observation['obstacle_dist']))
+
         return observation, reward, terminated, truncated, info
 
     def close(self) -> None:

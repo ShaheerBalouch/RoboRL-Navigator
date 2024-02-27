@@ -29,6 +29,7 @@ class Reach:
         self.sim = sim
         self.robot = robot
         self.goal = None
+        self.obstacle_pos = None
 
         self.reward_type = reward_type
         self.orientation_task = orientation_task
@@ -41,6 +42,9 @@ class Reach:
         self.orientation_range_low = np.array([-3, -0.8])
         self.orientation_range_high = np.array([-2, 0.4])
 
+        self.obstacle_range_low = np.array([0.35, 0.0, 0.05])
+        self.obstacle_range_high = np.array([0.75, 0.03, 0.05])
+
         with self.sim.no_rendering():
             self.create_scene()
 
@@ -49,8 +53,10 @@ class Reach:
 
     def reset(self) -> None:
         self.goal = self._sample_goal()
+        self.obstacle_pos = self._sample_obstacle()
         if not self.demonstration:
             self.sim.set_base_pose("target", self.goal[:3], np.array([0.0, 0.0, 0.0, 1.0]))
+            self.sim.set_base_pose("obstacle1", self.obstacle_pos, np.array([0.0, 0.0, 0.0, 1.0]))
             if self.orientation_task:
                 goal_orientation = euler_to_quaternion([self.goal[3], self.goal[4], 0])
                 self.sim.set_base_pose("target_orientation_mark", self.goal[:3], goal_orientation)
@@ -82,17 +88,28 @@ class Reach:
             )).astype(np.float32)
         return position
 
+    def _sample_obstacle(self) -> np.ndarray:
+        position = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+
+        while distance(position, self.goal) < 0.12:
+            position = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+
+        return position
+
     def is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         result = np.array(d < self.distance_threshold, dtype=bool)
         return result
 
-    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any]) -> np.ndarray:
+    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([1.0])) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
-            return -d.astype(np.float32)
+            # if info is dict and info.get("is_collision"):
+            #     return np.array(-1.0)
+
+            return -d.astype(np.float32) + -(1.0-obstacle_dist).astype(np.float32)
 
     def get_goal(self) -> np.ndarray:
         """Return the current goal."""
