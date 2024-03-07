@@ -1,3 +1,4 @@
+import time
 from typing import (
     Any,
     Dict,
@@ -68,6 +69,8 @@ class PandaBulletEnv(BaseEnv):
         return observation, info
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, bool, Dict[str, Any]]:
+        self.sim.get_closest_dist()
+        time.sleep(50)
         self.robot.set_action(action)
         self.sim.step()
         if np.sum(self.robot.get_ee_velocity()) > 0.1:
@@ -79,7 +82,7 @@ class PandaBulletEnv(BaseEnv):
         # An episode is terminated if the agent has reached the target or collided with an object
 
         if self.sim.is_collision(self.obstacle_collision_margin):
-            # print("COLLISION HAPPENED")
+            print("COLLISION HAPPENED")
             terminated = True
             info = {"is_success": False}
         else:
@@ -95,14 +98,14 @@ class PandaBulletEnv(BaseEnv):
     def close(self) -> None:
         self.sim.close()
 
-    def render(self) -> Optional[np.ndarray]:
-        """Render."""
-        return self.sim.render(
-            width=self.render_width,
-            height=self.render_height,
-            target_position=self.render_target_position,
-            distance=self.render_distance,
-            yaw=self.render_yaw,
-            pitch=self.render_pitch,
-            roll=self.render_roll,
-        )
+    # def render(self) -> Optional[np.ndarray]:
+    #     """Render."""
+    #     return self.sim.render(
+    #         width=self.render_width,
+    #         height=self.render_height,
+    #         target_position=self.render_target_position,
+    #         distance=self.render_distance,
+    #         yaw=self.render_yaw,
+    #         pitch=self.render_pitch,
+    #         roll=self.render_roll,
+    #     )

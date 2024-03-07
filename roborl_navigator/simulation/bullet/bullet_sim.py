@@ -1,3 +1,4 @@
+import math
 import os
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
@@ -6,6 +7,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import pybullet_utils.bullet_client as bc
+from contourpy.util import renderer
 
 from roborl_navigator.simulation import Simulation
 
@@ -38,8 +40,8 @@ class BulletSim(Simulation):
         else:
             raise ValueError("The 'render' argument is must be in {'rgb_array', 'human'}")
         self.physics_client = bc.BulletClient(connection_mode=self.connection_mode, options=options)
-        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
+        # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+        # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         self.n_substeps = n_substeps
         self.timestep = 1.0 / 500
         self.physics_client.setTimeStep(self.timestep)
@@ -58,39 +60,124 @@ class BulletSim(Simulation):
         if self.physics_client.isConnected():
             self.physics_client.disconnect()
 
-    def render(
-        self,
-        width: int = 720,
-        height: int = 480,
-        target_position: Optional[np.ndarray] = None,
-        distance: float = 1.4,
-        yaw: float = 45,
-        pitch: float = -30,
-        roll: float = 0,
-    ) -> Optional[np.ndarray]:
-        if self.render_mode == "rgb_array":
-            target_position = target_position if target_position is not None else np.zeros(3)
-            view_matrix = self.physics_client.computeViewMatrixFromYawPitchRoll(
-                cameraTargetPosition=target_position,
-                distance=distance,
-                yaw=yaw,
-                pitch=pitch,
-                roll=roll,
-                upAxisIndex=2,
-            )
-            proj_matrix = self.physics_client.computeProjectionMatrixFOV(
-                fov=60, aspect=float(width) / height, nearVal=0.1, farVal=100.0
-            )
-            (_, _, rgba, _, _) = self.physics_client.getCameraImage(
-                width=width,
-                height=height,
-                viewMatrix=view_matrix,
-                projectionMatrix=proj_matrix,
-                shadow=True,
-                renderer=p.ER_BULLET_HARDWARE_OPENGL,
-            )
-            rgba = np.array(rgba, dtype=np.uint8).reshape((height, width, 4))
-            return rgba[..., :3]
+    def take_image(self, width, height, distance=0.001, yaw=-90, pitch=90, roll=0):
+        camera_pos = self.get_link_position("panda", 8)
+        camera_pos = list(camera_pos)
+        camera_pos[0] += 0.05
+        camera_pos[2] -= 0.02
+        view_matrix = p.computeViewMatrixFromYawPitchRoll(
+            cameraTargetPosition=camera_pos,
+            distance=distance,
+            yaw=yaw,
+            pitch=-pitch,
+            roll=roll,  # -28
+            upAxisIndex=2,
+        )
+
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60, aspect=float(width) / height, nearVal=0.001, farVal=1000.0
+        )
+
+        return self.physics_client.getCameraImage(width=width,
+                                                  height=height,
+                                                  viewMatrix=view_matrix,
+                                                  projectionMatrix=proj_matrix,
+                                                  renderer=p.ER_BULLET_HARDWARE_OPENGL), view_matrix, proj_matrix, camera_pos
+
+    def get_point_cloud(self, width, height, view_matrix, proj_matrix, img):
+        # based on https://stackoverflow.com/questions/59128880/getting-world-coordinates-from-opengl-depth-buffer
+
+        depth = img[3]
+
+        # create a 4x4 transform matrix that goes from pixel coordinates (and depth values) to world coordinates
+        proj_matrix = np.asarray(proj_matrix).reshape([4, 4], order="F")
+        view_matrix = np.asarray(view_matrix).reshape([4, 4], order="F")
+        tran_pix_world = np.linalg.inv(np.matmul(proj_matrix, view_matrix))
+
+        # create a grid with pixel coordinates and depth values
+        y, x = np.mgrid[-1:1:2 / height, -1:1:2 / width]
+        y *= -1.
+        x, y, z = x.reshape(-1), y.reshape(-1), depth.reshape(-1)
+        h = np.ones_like(z)
+
+        pixels = np.stack([x, y, z, h], axis=1)
+        # filter out "infinite" depths
+        # pixels = pixels[z < 0.99]
+        pixels[:, 2] = 2 * pixels[:, 2] - 1
+
+        # turn pixels to world coordinates
+        points = np.matmul(tran_pix_world, pixels.T).T
+        points /= points[:, 3: 4]
+        points = points[:, :3]
+
+        return points
+
+    def return_closest_dist(self, width, height, viewMat, projMat, img, cameraPos):
+        points = self.get_point_cloud(width, height, viewMat, projMat, img)
+        visualShapeId = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 1], radius=0.01)
+        minDist = 1000
+        min_pos = np.zeros(3)
+        for i in points:
+            dist = np.linalg.norm(cameraPos - i, axis=-1)
+            if (dist <= minDist):
+                minDist = dist
+                min_pos = i
+
+        p.addUserDebugLine(cameraPos, min_pos, [1, 0, 0])
+        mb = p.createMultiBody(baseMass=0,
+                               baseCollisionShapeIndex=-1,
+                               baseVisualShapeIndex=visualShapeId,
+                               basePosition=min_pos,
+                               useMaximalCoordinates=True)
+
+        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 1, 0, 1], radius=0.01)
+
+        mc = p.createMultiBody(baseMass=0,
+                               baseCollisionShapeIndex=-1,
+                               baseVisualShapeIndex=visualShapeId2,
+                               basePosition=cameraPos,
+                               useMaximalCoordinates=True)
+        return minDist
+
+    def get_closest_dist(self):
+        img, viewMat, projMat, cameraPos = self.take_image(128, 72)
+        minDist = self.return_closest_dist(128, 72, viewMat, projMat, img, cameraPos)
+        print("MIN DIST: ", minDist)
+
+
+    # def render(
+    #     self,
+    #     width: int = 720,
+    #     height: int = 480,
+    #     target_position: Optional[np.ndarray] = None,
+    #     distance: float = 1.4,
+    #     yaw: float = 45,
+    #     pitch: float = -30,
+    #     roll: float = 0,
+    # ) -> Optional[np.ndarray]:
+    #     if self.render_mode == "rgb_array":
+    #         target_position = target_position if target_position is not None else np.zeros(3)
+    #         view_matrix = self.physics_client.computeViewMatrixFromYawPitchRoll(
+    #             cameraTargetPosition=target_position,
+    #             distance=distance,
+    #             yaw=yaw,
+    #             pitch=pitch,
+    #             roll=roll,
+    #             upAxisIndex=2,
+    #         )
+    #         proj_matrix = self.physics_client.computeProjectionMatrixFOV(
+    #             fov=60, aspect=float(width) / height, nearVal=0.1, farVal=100.0
+    #         )
+    #         (_, _, rgba, _, _) = self.physics_client.getCameraImage(
+    #             width=width,
+    #             height=height,
+    #             viewMatrix=view_matrix,
+    #             projectionMatrix=proj_matrix,
+    #             shadow=True,
+    #             renderer=p.ER_BULLET_HARDWARE_OPENGL,
+    #         )
+    #         rgba = np.array(rgba, dtype=np.uint8).reshape((height, width, 4))
+    #         return rgba[..., :3]
 
     @contextmanager
     def no_rendering(self) -> Iterator[None]:
