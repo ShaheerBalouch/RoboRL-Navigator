@@ -114,29 +114,18 @@ class BulletSim(Simulation):
 
     def return_closest_dist(self, width, height, viewMat, projMat, img, cameraPos):
         points = self.get_point_cloud(width, height, viewMat, projMat, img)
-        visualShapeId = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 1], radius=0.01)
         minDist = 1000
         min_pos = np.zeros(3)
-        for i in points:
-            dist = np.linalg.norm(cameraPos - i, axis=-1)
+        for i in range(0, len(points), 5):
+            dist = np.linalg.norm(cameraPos - points[i], axis=-1)
             if (dist <= minDist):
                 minDist = dist
-                min_pos = i
+                min_pos = points[i]
 
-        p.addUserDebugLine(cameraPos, min_pos, [1, 0, 0])
-        mb = p.createMultiBody(baseMass=0,
-                               baseCollisionShapeIndex=-1,
-                               baseVisualShapeIndex=visualShapeId,
-                               basePosition=min_pos,
-                               useMaximalCoordinates=True)
+        self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
+        self.set_base_pose("camera_pos", cameraPos, np.array([0, 0, 0, 1]))
+        self.physics_client.addUserDebugLine(cameraPos, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
 
-        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 1, 0, 1], radius=0.01)
-
-        mc = p.createMultiBody(baseMass=0,
-                               baseCollisionShapeIndex=-1,
-                               baseVisualShapeIndex=visualShapeId2,
-                               basePosition=cameraPos,
-                               useMaximalCoordinates=True)
         return minDist
 
     def get_closest_dist(self):
@@ -249,6 +238,22 @@ class BulletSim(Simulation):
         self.create_table(length=1.3, width=2, height=0.1)
         self.create_sphere(np.zeros(3))
         self.create_obstacle(length=0.05, width=0.05, height=0.1)
+        visualShapeId = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.75], radius=0.01)
+        self._bodies_idx["contact_point"] = self.physics_client.createMultiBody(
+            baseVisualShapeIndex=visualShapeId,
+            baseCollisionShapeIndex=-1,
+            baseMass=0.0,
+            basePosition=np.zeros(3),
+        )
+
+        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 1, 0, 0.75], radius=0.01)
+        self._bodies_idx["camera_pos"] = self.physics_client.createMultiBody(
+            baseVisualShapeIndex=visualShapeId2,
+            baseCollisionShapeIndex=-1,
+            baseMass=0.0,
+            basePosition=np.zeros(3),
+        )
+        self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
         if self.orientation_task:
             self.create_orientation_mark(np.zeros(3))
 
@@ -326,7 +331,7 @@ class BulletSim(Simulation):
             body_name="obstacle1",
             half_extents=np.array([length, width, height]) / 2,
             position=np.array([0.45, 0.0, height/2]),
-            rgba_color=np.array([0.9, 0.1, 0.1, 0.75]),
+            rgba_color=np.array([1, 0, 0, 1]),
         )
 
     def create_sphere(self, position: np.ndarray) -> None:
@@ -335,7 +340,7 @@ class BulletSim(Simulation):
         visual_kwargs = {
             "radius": radius,
             "specularColor": np.zeros(3),
-            "rgbaColor": np.array([0.0, 1.0, 0.0, 1.0]),
+            "rgbaColor": np.array([0.0, 1.0, 0.0, 0.75]),
         }
         self.create_geometry(
             "target",
