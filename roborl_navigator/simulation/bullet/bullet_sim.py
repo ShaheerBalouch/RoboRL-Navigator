@@ -1,5 +1,3 @@
-import math
-import os
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -7,7 +5,6 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 import pybullet_utils.bullet_client as bc
-from contourpy.util import renderer
 
 from roborl_navigator.simulation import Simulation
 
@@ -62,17 +59,32 @@ class BulletSim(Simulation):
 
     def take_image(self, width, height, distance=0.001, yaw=-90, pitch=90, roll=0):
         camera_pos = self.get_link_position("panda", 8)
+        camera_ori = self.get_link_orientation("panda", 8)
         camera_pos = list(camera_pos)
-        camera_pos[0] += 0.05
-        camera_pos[2] -= 0.02
-        view_matrix = p.computeViewMatrixFromYawPitchRoll(
-            cameraTargetPosition=camera_pos,
-            distance=distance,
-            yaw=yaw,
-            pitch=-pitch,
-            roll=roll,  # -28
-            upAxisIndex=2,
-        )
+
+        local_offset = np.array([0.05, 0.0, 0.02])
+        rot_matrix = p.getMatrixFromQuaternion(camera_ori)
+        rot_matrix = np.array(rot_matrix).reshape(3, 3)
+
+        world_offset = np.dot(rot_matrix, local_offset)
+        camera_pos += world_offset
+
+        init_camera_vector = (0, 0, 1)  # z-axis
+        init_up_vector = (1, 0, 0)  # y-axis
+
+        camera_vector = rot_matrix.dot(init_camera_vector)
+        up_vector = rot_matrix.dot(init_up_vector)
+
+        view_matrix = p.computeViewMatrix(camera_pos, camera_pos + 0.1 * camera_vector, up_vector)
+
+        # view_matrix = p.computeViewMatrixFromYawPitchRoll(
+        #     cameraTargetPosition=camera_pos,
+        #     distance=distance,
+        #     yaw=yaw,
+        #     pitch=-pitch,
+        #     roll=roll,  # -28
+        #     upAxisIndex=2,
+        # )
 
         proj_matrix = p.computeProjectionMatrixFOV(
             fov=60, aspect=float(width) / height, nearVal=0.001, farVal=1000.0
@@ -112,26 +124,27 @@ class BulletSim(Simulation):
 
         return points
 
-    def return_closest_dist(self, width, height, viewMat, projMat, img, cameraPos):
+    def return_closest_dist(self, width, height, viewMat, projMat, img, ee_position, cameraPos):
         points = self.get_point_cloud(width, height, viewMat, projMat, img)
         minDist = 1000
         min_pos = np.zeros(3)
         for i in range(0, len(points), 5):
-            dist = np.linalg.norm(cameraPos - points[i], axis=-1)
+            dist = np.linalg.norm(ee_position - points[i], axis=-1)
             if (dist <= minDist):
                 minDist = dist
                 min_pos = points[i]
 
         self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
         self.set_base_pose("camera_pos", cameraPos, np.array([0, 0, 0, 1]))
-        self.physics_client.addUserDebugLine(cameraPos, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
+        self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
+        self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
 
         return minDist
 
-    def get_closest_dist(self):
+    def get_closest_dist(self, ee_position):
         img, viewMat, projMat, cameraPos = self.take_image(128, 72)
-        minDist = self.return_closest_dist(128, 72, viewMat, projMat, img, cameraPos)
-        print("MIN DIST: ", minDist)
+        minDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
+        # print("MIN DIST: ", minDist)
 
 
     # def render(
@@ -176,7 +189,7 @@ class BulletSim(Simulation):
 
     # Bullet Unique
     def get_link_position(self, body: str, link: int) -> np.ndarray:
-        position = self.physics_client.getLinkState(self._bodies_idx[body], link)[0]
+        position = self.physics_client.getLinkState(self._bodies_idx[body], link, computeForwardKinematics=True)[0]
         return np.array(position)
 
     # Bullet Unique
@@ -252,6 +265,13 @@ class BulletSim(Simulation):
             baseCollisionShapeIndex=-1,
             baseMass=0.0,
             basePosition=np.zeros(3),
+        )
+
+        self._bodies_idx["ee_position"] = self.physics_client.createMultiBody(
+            baseVisualShapeIndex=visualShapeId2,
+            baseCollisionShapeIndex=-1,
+            baseMass=0.0,
+            basePosition=np.zeros(3)
         )
         self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
         if self.orientation_task:

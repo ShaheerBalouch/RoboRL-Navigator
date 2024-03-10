@@ -54,7 +54,7 @@ class PandaBulletEnv(BaseEnv):
         self.temp = None
         self.pitch = None
         self.a = None
-        self.obstacle_collision_margin = 0.005
+        self.obstacle_collision_margin = 0.005 #0.03
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[dict] = None
@@ -69,8 +69,8 @@ class PandaBulletEnv(BaseEnv):
         return observation, info
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, bool, Dict[str, Any]]:
-        self.sim.get_closest_dist()
-        time.sleep(50)
+        self.sim.get_closest_dist(self.robot.get_ee_position())
+        time.sleep(0.1)
         self.robot.set_action(action)
         self.sim.step()
         if np.sum(self.robot.get_ee_velocity()) > 0.1:
