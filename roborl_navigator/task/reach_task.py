@@ -101,15 +101,19 @@ class Reach:
         result = np.array(d < self.distance_threshold, dtype=bool)
         return result
 
-    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([1.0])) -> np.ndarray:
+    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.2, 0.2, 0.2])) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
-            # if info is dict and info.get("is_collision"):
-            #     return np.array(-1.0)
-
-            return -d.astype(np.float32) + -(1.0-obstacle_dist).astype(np.float32)
+            reward = -d.astype(np.float32)
+            distX, distY, distZ = obstacle_dist
+            rewardX = -(0.2-distX)/3
+            rewardY = -(0.2-distY)/3
+            rewardZ = -(0.2-distZ)/3
+            distReward = (rewardX + rewardY + rewardZ).astype(np.float32)
+            reward += distReward
+            return reward
 
     def get_goal(self) -> np.ndarray:
         """Return the current goal."""

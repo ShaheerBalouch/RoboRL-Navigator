@@ -37,7 +37,7 @@ class BaseEnv(gym.Env):
 
     def _get_obs(self) -> Dict[str, np.ndarray]:
         robot_pos = self.robot.get_obs().astype(np.float32)
-        obstacle_dist = self.sim.get_distances().astype(np.float32)
+        obstacle_dist = self.sim.get_closest_dist(self.robot.get_ee_position())[0].astype(np.float32)
         achieved_goal = self.task.get_achieved_goal().astype(np.float32)
         desired_goal = self.task.get_goal().astype(np.float32)
         return {

@@ -1,3 +1,4 @@
+import time
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -51,6 +52,7 @@ class BulletSim(Simulation):
         """Step the simulation."""
         for _ in range(self.n_substeps):
             self.physics_client.stepSimulation()
+            # time.sleep(0.01)
 
     def close(self) -> None:
         """Close the simulation."""
@@ -76,15 +78,6 @@ class BulletSim(Simulation):
         up_vector = rot_matrix.dot(init_up_vector)
 
         view_matrix = p.computeViewMatrix(camera_pos, camera_pos + 0.1 * camera_vector, up_vector)
-
-        # view_matrix = p.computeViewMatrixFromYawPitchRoll(
-        #     cameraTargetPosition=camera_pos,
-        #     distance=distance,
-        #     yaw=yaw,
-        #     pitch=-pitch,
-        #     roll=roll,  # -28
-        #     upAxisIndex=2,
-        # )
 
         proj_matrix = p.computeProjectionMatrixFOV(
             fov=60, aspect=float(width) / height, nearVal=0.001, farVal=1000.0
@@ -134,17 +127,17 @@ class BulletSim(Simulation):
                 minDist = dist
                 min_pos = points[i]
 
-        self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
-        self.set_base_pose("camera_pos", cameraPos, np.array([0, 0, 0, 1]))
-        self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
-        self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
-
-        return minDist
+        # self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
+        # self.set_base_pose("camera_pos", cameraPos, np.array([0, 0, 0, 1]))
+        # self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
+        # self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
+        minVectorDist = np.abs(ee_position - min_pos)
+        return minVectorDist, minDist
 
     def get_closest_dist(self, ee_position):
         img, viewMat, projMat, cameraPos = self.take_image(128, 72)
         minDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
-        # print("MIN DIST: ", minDist)
+        return minDist
 
 
     # def render(
@@ -259,7 +252,7 @@ class BulletSim(Simulation):
             basePosition=np.zeros(3),
         )
 
-        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 1, 0, 0.75], radius=0.01)
+        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 0.75], radius=0.01)
         self._bodies_idx["camera_pos"] = self.physics_client.createMultiBody(
             baseVisualShapeIndex=visualShapeId2,
             baseCollisionShapeIndex=-1,
@@ -388,22 +381,23 @@ class BulletSim(Simulation):
             visual_kwargs=visual_kwargs,
         )
 
-    def get_distances(self):
-        robot_id = self._bodies_idx["panda"]
-        obstacle_id = self._bodies_idx["obstacle1"]
-        distances = []
+    # def get_distances(self):
+    #     robot_id = self._bodies_idx["panda"]
+    #     obstacle_id = self._bodies_idx["obstacle1"]
+    #     distances = []
+    #
+    #     closest_points = p.getClosestPoints(robot_id, obstacle_id, 10.0, linkIndexA=10)
+    #     if len(closest_points) == 0:
+    #         distances.append(10.0)
+    #     else:
+    #         distances.append(closest_points[0][8])  # 8th array position is the distance between both objects
+    #
+    #     return np.array(distances)
 
-        closest_points = p.getClosestPoints(robot_id, obstacle_id, 10.0, linkIndexA=10)
-        if len(closest_points) == 0:
-            distances.append(10.0)
-        else:
-            distances.append(closest_points[0][8])  # 8th array position is the distance between both objects
-
-        return np.array(distances)
-
-    def is_collision(self, margin=0):
-        ds = self.get_distances()
-        return (ds < margin).any()
+    def is_collision(self, ee_position, margin=0):
+        ds = self.get_closest_dist(ee_position)[1]
+        collision = ds < margin
+        return collision
 
         # Target Box Orientation Lines for Debug
         # oid = self._bodies_idx["panda"]

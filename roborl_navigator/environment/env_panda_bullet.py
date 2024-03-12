@@ -54,7 +54,7 @@ class PandaBulletEnv(BaseEnv):
         self.temp = None
         self.pitch = None
         self.a = None
-        self.obstacle_collision_margin = 0.005 #0.03
+        self.obstacle_collision_margin = 0.03
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[dict] = None
@@ -69,8 +69,7 @@ class PandaBulletEnv(BaseEnv):
         return observation, info
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, bool, Dict[str, Any]]:
-        self.sim.get_closest_dist(self.robot.get_ee_position())
-        time.sleep(0.1)
+        #self.sim.get_closest_dist(self.robot.get_ee_position())
         self.robot.set_action(action)
         self.sim.step()
         if np.sum(self.robot.get_ee_velocity()) > 0.1:
@@ -81,8 +80,9 @@ class PandaBulletEnv(BaseEnv):
         observation = self._get_obs()
         # An episode is terminated if the agent has reached the target or collided with an object
 
-        if self.sim.is_collision(self.obstacle_collision_margin):
+        if self.sim.is_collision(self.robot.get_ee_position(), self.obstacle_collision_margin):
             print("COLLISION HAPPENED")
+            # time.sleep(10)
             terminated = True
             info = {"is_success": False}
         else:
