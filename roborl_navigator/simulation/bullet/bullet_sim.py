@@ -40,6 +40,8 @@ class BulletSim(Simulation):
         self.physics_client = bc.BulletClient(connection_mode=self.connection_mode, options=options)
         # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
         # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
+        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
+        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         self.n_substeps = n_substeps
         self.timestep = 1.0 / 500
         self.physics_client.setTimeStep(self.timestep)
@@ -80,7 +82,7 @@ class BulletSim(Simulation):
         view_matrix = p.computeViewMatrix(camera_pos, camera_pos + 0.1 * camera_vector, up_vector)
 
         proj_matrix = p.computeProjectionMatrixFOV(
-            fov=60, aspect=float(width) / height, nearVal=0.001, farVal=1000.0
+            fov=60, aspect=float(width) / height, nearVal=0.001, farVal=10.0
         )
 
         return self.physics_client.getCameraImage(width=width,
@@ -121,7 +123,7 @@ class BulletSim(Simulation):
         points = self.get_point_cloud(width, height, viewMat, projMat, img)
         minDist = 1000
         min_pos = np.zeros(3)
-        for i in range(0, len(points), 5):
+        for i in range(0, len(points), 50):
             dist = np.linalg.norm(ee_position - points[i], axis=-1)
             if (dist <= minDist):
                 minDist = dist
@@ -136,8 +138,9 @@ class BulletSim(Simulation):
 
     def get_closest_dist(self, ee_position):
         img, viewMat, projMat, cameraPos = self.take_image(128, 72)
-        minDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
-        return minDist
+        minVectorDist, minEuclidDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
+        minEuclidDist = np.array([minEuclidDist])
+        return minVectorDist, minEuclidDist
 
 
     # def render(
@@ -394,8 +397,8 @@ class BulletSim(Simulation):
     #
     #     return np.array(distances)
 
-    def is_collision(self, ee_position, margin=0):
-        ds = self.get_closest_dist(ee_position)[1]
+    def is_collision(self, ee_position, ds, margin=0):
+        # ds = self.get_closest_dist(ee_position)[1]
         collision = ds < margin
         return collision
 

@@ -18,14 +18,16 @@ class BaseEnv(gym.Env):
         observation, _ = self.reset()
 
         robot_pos_shape = observation["robot_pos"].shape
-        obstacle_dist_shape = observation["obstacle_dist"].shape
+        obstacle_dist_vector_shape = observation["obstacle_dist_vector"].shape
+        obstacle_dist_euclid_shape = observation["obstacle_dist_euclid"].shape
         achieved_goal_shape = observation["achieved_goal"].shape
-        desired_goal_shape = observation["achieved_goal"].shape
+        desired_goal_shape = observation["desired_goal"].shape
 
         self.observation_space = gym.spaces.Dict(
             dict(
                 robot_pos=gym.spaces.Box(-10.0, 10.0, shape=robot_pos_shape, dtype=np.float32),
-                obstacle_dist=gym.spaces.Box(-10.0, 10.0, shape=obstacle_dist_shape, dtype=np.float32),
+                obstacle_dist_vector=gym.spaces.Box(-10.0, 10.0, shape=obstacle_dist_vector_shape, dtype=np.float32),
+                obstacle_dist_euclid=gym.spaces.Box(-10.0, 10.0, shape=obstacle_dist_euclid_shape, dtype=np.float32),
                 desired_goal=gym.spaces.Box(-10.0, 10.0, shape=achieved_goal_shape, dtype=np.float32),
                 achieved_goal=gym.spaces.Box(-10.0, 10.0, shape=desired_goal_shape, dtype=np.float32),
             )
@@ -36,13 +38,18 @@ class BaseEnv(gym.Env):
         self._saved_goal = dict()
 
     def _get_obs(self) -> Dict[str, np.ndarray]:
+        obstacle_dist = self.sim.get_closest_dist(self.robot.get_ee_position())
+
         robot_pos = self.robot.get_obs().astype(np.float32)
-        obstacle_dist = self.sim.get_closest_dist(self.robot.get_ee_position())[0].astype(np.float32)
+        obstacle_dist_vector = obstacle_dist[0].astype(np.float32)
+        obstacle_dist_euclid = obstacle_dist[1].astype(np.float32)
         achieved_goal = self.task.get_achieved_goal().astype(np.float32)
         desired_goal = self.task.get_goal().astype(np.float32)
+
         return {
             "robot_pos": robot_pos,
-            "obstacle_dist": obstacle_dist,
+            "obstacle_dist_vector": obstacle_dist_vector,
+            "obstacle_dist_euclid": obstacle_dist_euclid,
             "achieved_goal": achieved_goal,
             "desired_goal": desired_goal,
         }
