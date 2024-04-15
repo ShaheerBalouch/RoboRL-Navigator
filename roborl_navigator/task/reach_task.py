@@ -58,7 +58,7 @@ class Reach:
 
     def reset(self) -> None:
         self.goal = self._sample_goal()
-        # self.obstacle_pos = self._sample_obstacle()
+        self.obstacle_pos = self._sample_obstacle()
         # print("GOAL REWARD SUM: ", self.sum_goal_reward)
         # print("DIST REWARD SUM: ", self.sum_dist_reward)
         # print("TOTAL REWARD SUM: ", self.sum_total_reward)
