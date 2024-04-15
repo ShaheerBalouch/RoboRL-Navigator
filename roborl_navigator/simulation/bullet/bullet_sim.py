@@ -50,6 +50,7 @@ class BulletSim(Simulation):
         self.physics_client.setGravity(0, 0, -9.81)
         self._bodies_idx = {}
 
+        self.currEuclidPos = -1
     def step(self) -> None:
         """Step the simulation."""
         for _ in range(self.n_substeps):
@@ -140,6 +141,7 @@ class BulletSim(Simulation):
         img, viewMat, projMat, cameraPos = self.take_image(128, 72)
         minVectorDist, minEuclidDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
         minEuclidDist = np.array([minEuclidDist])
+        self.currEuclidPos = minEuclidDist[0]
         return minVectorDist, minEuclidDist
 
 
@@ -356,7 +358,7 @@ class BulletSim(Simulation):
         visual_kwargs = {
             "radius": radius,
             "specularColor": np.zeros(3),
-            "rgbaColor": np.array([0.0, 1.0, 0.0, 0.75]),
+            "rgbaColor": np.array([0.0, 1.0, 0.0, 0.5]),
         }
         self.create_geometry(
             "target",
@@ -397,8 +399,9 @@ class BulletSim(Simulation):
     #
     #     return np.array(distances)
 
-    def is_collision(self, ee_position, ds, margin=0):
+    def is_collision(self, ee_position, margin=0):
         # ds = self.get_closest_dist(ee_position)[1]
+        ds = self.currEuclidPos
         collision = ds < margin
         return collision
 

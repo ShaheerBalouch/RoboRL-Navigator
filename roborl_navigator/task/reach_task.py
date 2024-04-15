@@ -58,10 +58,10 @@ class Reach:
 
     def reset(self) -> None:
         self.goal = self._sample_goal()
-        self.obstacle_pos = self._sample_obstacle()
-        print("GOAL REWARD SUM: ", self.sum_goal_reward)
-        print("DIST REWARD SUM: ", self.sum_dist_reward)
-        print("TOTAL REWARD SUM: ", self.sum_total_reward)
+        # self.obstacle_pos = self._sample_obstacle()
+        # print("GOAL REWARD SUM: ", self.sum_goal_reward)
+        # print("DIST REWARD SUM: ", self.sum_dist_reward)
+        # print("TOTAL REWARD SUM: ", self.sum_total_reward)
         print("STEP COUNT: ", self.step_count)
         if not self.demonstration:
             self.sim.set_base_pose("target", self.goal[:3], np.array([0.0, 0.0, 0.0, 1.0]))
@@ -109,27 +109,32 @@ class Reach:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         result = np.array(d < self.distance_threshold, dtype=bool)
         return result
-                                                                                # np.array([0.1, 0.1, 0.1]))
-    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.1])) -> np.ndarray:
+
+    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.1, 0.1, 0.1])) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
             goalReward = -d.astype(np.float32)
-            # distX, distY, distZ = obstacle_dist
-            # rewardX = -(0.1-distX)/3
-            # rewardY = -(0.1-distY)/3
-            # rewardZ = -(0.1-distZ)/3
-            # distReward = (rewardX + rewardY + rewardZ).astype(np.float32)
-            distReward = np.clip(-(0.1-obstacle_dist).astype(np.float32), -0.1, 0.3)
+
+            distX, distY, distZ = obstacle_dist
+            rewardX = np.clip(-(0.1-distX)/3, -0.1, 0.0)
+            rewardY = np.clip(-(0.1-distY)/3, -0.1, 0.0)
+            rewardZ = np.clip(-(0.1-distZ)/3, -0.1, 0.0)
+            distReward = (rewardX + rewardY + rewardZ).astype(np.float32)
+
+
+            # distReward = np.clip(-(0.3-obstacle_dist).astype(np.float32), -0.3, 0.0)
+
+
             # if(info is list and info["is_collision"]):
             #     distReward += -1.0
 
             reward = distReward + goalReward
             if goalReward.shape == ():
-                self.sum_goal_reward += goalReward
-                self.sum_dist_reward += distReward
-                self.sum_total_reward += reward
+            #     self.sum_goal_reward += goalReward
+            #     self.sum_dist_reward += distReward
+            #     self.sum_total_reward += reward
                 self.step_count += 1
 
             return reward
