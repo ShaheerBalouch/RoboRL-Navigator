@@ -1,4 +1,3 @@
-import time
 from typing import (
     Any,
     Dict,
@@ -55,22 +54,22 @@ class PandaBulletEnv(BaseEnv):
         self.pitch = None
         self.a = None
         self.obstacle_collision_margin = 0.022 # SHOULD BE BETWEEN 0.027 and 0.03
-        self.collision_counter = 0
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[dict] = None
     ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
-        super().reset(seed=seed, options=options)
+        # super().reset(seed=seed, options=options)
         self.task.np_random, seed = seeding.np_random(seed)
         with self.sim.no_rendering():
             self.robot.reset()
             self.task.reset()
+        if options and "goal" in options:
+            self.task.set_goal(options["goal"])
         observation = self._get_obs()
         info = {"is_success": self.task.is_success(observation["achieved_goal"], self.task.get_goal())}
         return observation, info
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, bool, Dict[str, Any]]:
-        #self.sim.get_closest_dist(self.robot.get_ee_position())
         self.robot.set_action(action)
         self.sim.step()
         if np.sum(self.robot.get_ee_velocity()) > 0.1:
@@ -81,9 +80,8 @@ class PandaBulletEnv(BaseEnv):
         observation = self._get_obs()
         # An episode is terminated if the agent has reached the target or collided with an object
 
-        if self.sim.is_collision(self.robot.get_ee_position(), self.obstacle_collision_margin):
+        if self.sim.is_collision(self.obstacle_collision_margin):
             print("COLLISION HAPPENED")
-            self.collision_counter += 1
             # time.sleep(10)
             terminated = True
             info = {"is_success": False, "is_collision": True}
@@ -97,17 +95,4 @@ class PandaBulletEnv(BaseEnv):
         return observation, reward, terminated, truncated, info
 
     def close(self) -> None:
-        print("COLLISON COUNTER: ", self.collision_counter)
         self.sim.close()
-
-    # def render(self) -> Optional[np.ndarray]:
-    #     """Render."""
-    #     return self.sim.render(
-    #         width=self.render_width,
-    #         height=self.render_height,
-    #         target_position=self.render_target_position,
-    #         distance=self.render_distance,
-    #         yaw=self.render_yaw,
-    #         pitch=self.render_pitch,
-    #         roll=self.render_roll,
-    #     )

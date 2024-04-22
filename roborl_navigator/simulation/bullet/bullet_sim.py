@@ -1,4 +1,3 @@
-import time
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -38,8 +37,6 @@ class BulletSim(Simulation):
         else:
             raise ValueError("The 'render' argument is must be in {'rgb_array', 'human'}")
         self.physics_client = bc.BulletClient(connection_mode=self.connection_mode, options=options)
-        # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
-        # self.physics_client.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 0)
         self.physics_client.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         self.physics_client.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
         self.n_substeps = n_substeps
@@ -50,28 +47,46 @@ class BulletSim(Simulation):
         self.physics_client.setGravity(0, 0, -9.81)
         self._bodies_idx = {}
 
-        self.currEuclidPos = -1
+        self.DEBUG_MODE = False
+
+        self.robot_body_name = "panda"
+        self.robot_camera_link = 8
+        self.camera_pos_local_offset = np.array([0.05, 0.0, 0.02])
+        self.image_resolution_width = 128
+        self.image_resolution_height = 72
+        self.curr_euclid_dist = -1
+
     def step(self) -> None:
         """Step the simulation."""
         for _ in range(self.n_substeps):
             self.physics_client.stepSimulation()
-            # time.sleep(0.01)
 
     def close(self) -> None:
         """Close the simulation."""
         if self.physics_client.isConnected():
             self.physics_client.disconnect()
 
-    def take_image(self, width, height, distance=0.001, yaw=-90, pitch=90, roll=0):
-        camera_pos = self.get_link_position("panda", 8)
-        camera_ori = self.get_link_orientation("panda", 8)
+    def take_image(self):
+        camera_pos = self.get_link_position(self.robot_body_name, self.robot_camera_link)
+        camera_ori = self.get_link_orientation(self.robot_body_name, self.robot_camera_link)
         camera_pos = list(camera_pos)
 
-        local_offset = np.array([0.05, 0.0, 0.02])
+        view_matrix = self.get_view_matrix(camera_pos, camera_ori)
+
+        proj_matrix = self.get_proj_matrix()
+
+        return (self.physics_client.getCameraImage(width=self.image_resolution_width,
+                                                   height=self.image_resolution_height,
+                                                   viewMatrix=view_matrix,
+                                                   projectionMatrix=proj_matrix,
+                                                   renderer=p.ER_BULLET_HARDWARE_OPENGL), view_matrix, proj_matrix, camera_pos)
+
+    def get_view_matrix(self, camera_pos, camera_ori):
+
         rot_matrix = p.getMatrixFromQuaternion(camera_ori)
         rot_matrix = np.array(rot_matrix).reshape(3, 3)
 
-        world_offset = np.dot(rot_matrix, local_offset)
+        world_offset = np.dot(rot_matrix, self.camera_pos_local_offset)
         camera_pos += world_offset
 
         init_camera_vector = (0, 0, 1)  # z-axis
@@ -82,18 +97,20 @@ class BulletSim(Simulation):
 
         view_matrix = p.computeViewMatrix(camera_pos, camera_pos + 0.1 * camera_vector, up_vector)
 
+        return view_matrix
+
+    def get_proj_matrix(self):
         proj_matrix = p.computeProjectionMatrixFOV(
-            fov=60, aspect=float(width) / height, nearVal=0.001, farVal=10.0
+            fov=60, aspect=float(self.image_resolution_width) / self.image_resolution_height, nearVal=0.001, farVal=10.0
         )
 
-        return self.physics_client.getCameraImage(width=width,
-                                                  height=height,
-                                                  viewMatrix=view_matrix,
-                                                  projectionMatrix=proj_matrix,
-                                                  renderer=p.ER_BULLET_HARDWARE_OPENGL), view_matrix, proj_matrix, camera_pos
+        return proj_matrix
 
-    def get_point_cloud(self, width, height, view_matrix, proj_matrix, img):
+    def get_point_cloud(self, view_matrix, proj_matrix, img):
         # based on https://stackoverflow.com/questions/59128880/getting-world-coordinates-from-opengl-depth-buffer
+
+        width = self.image_resolution_width
+        height = self.image_resolution_height
 
         depth = img[3]
 
@@ -120,64 +137,37 @@ class BulletSim(Simulation):
 
         return points
 
-    def return_closest_dist(self, width, height, viewMat, projMat, img, ee_position, cameraPos):
-        points = self.get_point_cloud(width, height, viewMat, projMat, img)
-        minDist = 1000
+    def return_closest_dist(self, ee_position, points):
+
+        min_dist = 1000
         min_pos = np.zeros(3)
         for i in range(0, len(points), 50):
             dist = np.linalg.norm(ee_position - points[i], axis=-1)
-            if (dist <= minDist):
-                minDist = dist
+
+            if dist <= min_dist:
+                min_dist = dist
                 min_pos = points[i]
 
-        # self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
-        # self.set_base_pose("camera_pos", cameraPos, np.array([0, 0, 0, 1]))
-        # self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
-        # self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
-        minVectorDist = np.abs(ee_position - min_pos)
-        return minVectorDist, minDist
+        if self.DEBUG_MODE:
+            self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
+            self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
+            self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
+
+        min_vector_dist = np.abs(ee_position - min_pos)
+
+        return min_vector_dist, min_dist
 
     def get_closest_dist(self, ee_position):
-        img, viewMat, projMat, cameraPos = self.take_image(128, 72)
-        minVectorDist, minEuclidDist = self.return_closest_dist(128, 72, viewMat, projMat, img, ee_position, cameraPos)
-        minEuclidDist = np.array([minEuclidDist])
-        self.currEuclidPos = minEuclidDist[0]
-        return minVectorDist, minEuclidDist
+        img, view_matrix, proj_matrix, camera_pos = self.take_image()
 
+        points = self.get_point_cloud(view_matrix, proj_matrix, img)
 
-    # def render(
-    #     self,
-    #     width: int = 720,
-    #     height: int = 480,
-    #     target_position: Optional[np.ndarray] = None,
-    #     distance: float = 1.4,
-    #     yaw: float = 45,
-    #     pitch: float = -30,
-    #     roll: float = 0,
-    # ) -> Optional[np.ndarray]:
-    #     if self.render_mode == "rgb_array":
-    #         target_position = target_position if target_position is not None else np.zeros(3)
-    #         view_matrix = self.physics_client.computeViewMatrixFromYawPitchRoll(
-    #             cameraTargetPosition=target_position,
-    #             distance=distance,
-    #             yaw=yaw,
-    #             pitch=pitch,
-    #             roll=roll,
-    #             upAxisIndex=2,
-    #         )
-    #         proj_matrix = self.physics_client.computeProjectionMatrixFOV(
-    #             fov=60, aspect=float(width) / height, nearVal=0.1, farVal=100.0
-    #         )
-    #         (_, _, rgba, _, _) = self.physics_client.getCameraImage(
-    #             width=width,
-    #             height=height,
-    #             viewMatrix=view_matrix,
-    #             projectionMatrix=proj_matrix,
-    #             shadow=True,
-    #             renderer=p.ER_BULLET_HARDWARE_OPENGL,
-    #         )
-    #         rgba = np.array(rgba, dtype=np.uint8).reshape((height, width, 4))
-    #         return rgba[..., :3]
+        min_vector_dist, min_euclid_dist = self.return_closest_dist(ee_position, points)
+
+        min_euclid_dist = np.array([min_euclid_dist])
+        self.curr_euclid_dist = min_euclid_dist[0]
+
+        return min_vector_dist, min_euclid_dist
 
     @contextmanager
     def no_rendering(self) -> Iterator[None]:
@@ -249,32 +239,32 @@ class BulletSim(Simulation):
         self.create_table(length=1.3, width=2, height=0.1)
         self.create_sphere(np.zeros(3))
         self.create_obstacle(length=0.05, width=0.05, height=0.1)
-        visualShapeId = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.75], radius=0.01)
-        self._bodies_idx["contact_point"] = self.physics_client.createMultiBody(
-            baseVisualShapeIndex=visualShapeId,
-            baseCollisionShapeIndex=-1,
-            baseMass=0.0,
-            basePosition=np.zeros(3),
-        )
 
-        visualShapeId2 = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 0.75], radius=0.01)
-        self._bodies_idx["camera_pos"] = self.physics_client.createMultiBody(
-            baseVisualShapeIndex=visualShapeId2,
-            baseCollisionShapeIndex=-1,
-            baseMass=0.0,
-            basePosition=np.zeros(3),
-        )
+        if self.DEBUG_MODE:
 
-        self._bodies_idx["ee_position"] = self.physics_client.createMultiBody(
-            baseVisualShapeIndex=visualShapeId2,
-            baseCollisionShapeIndex=-1,
-            baseMass=0.0,
-            basePosition=np.zeros(3)
-        )
-        self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
+            contact_point_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.75], radius=0.01)
+            self._bodies_idx["contact_point"] = self.physics_client.createMultiBody(
+                baseVisualShapeIndex=contact_point_visual_shape,
+                baseCollisionShapeIndex=-1,
+                baseMass=0.0,
+                basePosition=np.zeros(3),
+            )
+
+            ee_position_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 0.75], radius=0.01)
+
+            self._bodies_idx["ee_position"] = self.physics_client.createMultiBody(
+                baseVisualShapeIndex=ee_position_visual_shape,
+                baseCollisionShapeIndex=-1,
+                baseMass=0.0,
+                basePosition=np.zeros(3)
+            )
+            self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
+
         if self.orientation_task:
             self.create_orientation_mark(np.zeros(3))
 
+    def remove_model(self, body_name):
+        self.physics_client.removeBody(self._bodies_idx[body_name])
     def create_geometry(
         self,
         body_name: str,
@@ -287,14 +277,14 @@ class BulletSim(Simulation):
     ) -> None:
         """Create a geometry."""
         position = position if position is not None else np.zeros(3)
-        baseVisualShapeIndex = self.physics_client.createVisualShape(geom_type, **visual_kwargs)
+        base_visual_shape_index = self.physics_client.createVisualShape(geom_type, **visual_kwargs)
         if not ghost:
-            baseCollisionShapeIndex = self.physics_client.createCollisionShape(geom_type, **collision_kwargs)
+            base_collision_shape_index = self.physics_client.createCollisionShape(geom_type, **collision_kwargs)
         else:
-            baseCollisionShapeIndex = -1
+            base_collision_shape_index = -1
         self._bodies_idx[body_name] = self.physics_client.createMultiBody(
-            baseVisualShapeIndex=baseVisualShapeIndex,
-            baseCollisionShapeIndex=baseCollisionShapeIndex,
+            baseVisualShapeIndex=base_visual_shape_index,
+            baseCollisionShapeIndex=base_collision_shape_index,
             baseMass=mass,
             basePosition=position,
         )
@@ -386,22 +376,9 @@ class BulletSim(Simulation):
             visual_kwargs=visual_kwargs,
         )
 
-    # def get_distances(self):
-    #     robot_id = self._bodies_idx["panda"]
-    #     obstacle_id = self._bodies_idx["obstacle1"]
-    #     distances = []
-    #
-    #     closest_points = p.getClosestPoints(robot_id, obstacle_id, 10.0, linkIndexA=10)
-    #     if len(closest_points) == 0:
-    #         distances.append(10.0)
-    #     else:
-    #         distances.append(closest_points[0][8])  # 8th array position is the distance between both objects
-    #
-    #     return np.array(distances)
-
-    def is_collision(self, ee_position, margin=0):
+    def is_collision(self, margin=0.022):
         # ds = self.get_closest_dist(ee_position)[1]
-        ds = self.currEuclidPos
+        ds = self.curr_euclid_dist
         collision = ds < margin
         return collision
 

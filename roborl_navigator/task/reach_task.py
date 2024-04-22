@@ -59,10 +59,8 @@ class Reach:
     def reset(self) -> None:
         self.goal = self._sample_goal()
         self.obstacle_pos = self._sample_obstacle()
-        # print("GOAL REWARD SUM: ", self.sum_goal_reward)
-        # print("DIST REWARD SUM: ", self.sum_dist_reward)
-        # print("TOTAL REWARD SUM: ", self.sum_total_reward)
         print("STEP COUNT: ", self.step_count)
+
         if not self.demonstration:
             self.sim.set_base_pose("target", self.goal[:3], np.array([0.0, 0.0, 0.0, 1.0]))
             self.sim.set_base_pose("obstacle1", self.obstacle_pos, np.array([0.0, 0.0, 0.0, 1.0]))
@@ -115,26 +113,18 @@ class Reach:
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
-            goalReward = -d.astype(np.float32)
+            goal_reward = -d.astype(np.float32)
 
-            distX, distY, distZ = obstacle_dist
-            rewardX = np.clip(-(0.1-distX)/3, -0.1, 0.0)
-            rewardY = np.clip(-(0.1-distY)/3, -0.1, 0.0)
-            rewardZ = np.clip(-(0.1-distZ)/3, -0.1, 0.0)
-            distReward = (rewardX + rewardY + rewardZ).astype(np.float32)
+            dist_x, dist_y, dist_z = obstacle_dist
+            reward_x = np.clip(-(0.1-dist_x)/3, -0.1, 0.0)
+            reward_y = np.clip(-(0.1-dist_y)/3, -0.1, 0.0)
+            reward_z = np.clip(-(0.1-dist_z)/3, -0.1, 0.0)
+            dist_reward = (reward_x + reward_y + reward_z).astype(np.float32)
 
+            # dist_reward = np.clip(-(0.3-obstacle_dist).astype(np.float32), -0.3, 0.0)
 
-            # distReward = np.clip(-(0.3-obstacle_dist).astype(np.float32), -0.3, 0.0)
-
-
-            # if(info is list and info["is_collision"]):
-            #     distReward += -1.0
-
-            reward = distReward + goalReward
-            if goalReward.shape == ():
-            #     self.sum_goal_reward += goalReward
-            #     self.sum_dist_reward += distReward
-            #     self.sum_total_reward += reward
+            reward = dist_reward + goal_reward
+            if goal_reward.shape == ():
                 self.step_count += 1
 
             return reward
