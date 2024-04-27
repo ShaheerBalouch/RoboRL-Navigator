@@ -53,7 +53,7 @@ class PandaBulletEnv(BaseEnv):
         self.temp = None
         self.pitch = None
         self.a = None
-        self.obstacle_collision_margin = 0.022 # SHOULD BE BETWEEN 0.027 and 0.03
+        self.obstacle_collision_margin = 0.022 # SHOULD NOT BE MORE THAN 0.022
 
     def reset(
         self, seed: Optional[int] = None, options: Optional[dict] = None

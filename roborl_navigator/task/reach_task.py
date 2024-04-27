@@ -29,7 +29,9 @@ class Reach:
         self.sim = sim
         self.robot = robot
         self.goal = None
-        self.obstacle_pos = None
+        self.obstacle1_pos = None
+        self.obstacle2_pos = None
+        self.obstacle3_pos = None
 
         self.reward_type = reward_type
         self.orientation_task = orientation_task
@@ -42,8 +44,13 @@ class Reach:
         self.orientation_range_low = np.array([-3, -0.8])
         self.orientation_range_high = np.array([-2, 0.4])
 
-        self.obstacle_range_low = np.array([0.35, 0.0, 0.05])
-        self.obstacle_range_high = np.array([0.75, 0.03, 0.05])
+        self.obstacle_range = goal_range+0.2
+
+        # self.obstacle_range_low = np.array([0.35, 0.0, 0.05])
+        # self.obstacle_range_high = np.array([0.75, 0.03, 0.05])
+
+        self.obstacle_range_low = np.array([0.5 - (self.obstacle_range / 2), -self.obstacle_range / 2, 0.05])
+        self.obstacle_range_high = np.array([0.5 + (self.obstacle_range / 2), self.obstacle_range / 2, 0.05])
 
         self.sum_goal_reward = 0.0
         self.step_count = 0
@@ -58,12 +65,15 @@ class Reach:
 
     def reset(self) -> None:
         self.goal = self._sample_goal()
-        self.obstacle_pos = self._sample_obstacle()
+        self.obstacle1_pos, self.obstacle2_pos, self.obstacle3_pos = self._sample_obstacles()
         print("STEP COUNT: ", self.step_count)
 
         if not self.demonstration:
             self.sim.set_base_pose("target", self.goal[:3], np.array([0.0, 0.0, 0.0, 1.0]))
-            self.sim.set_base_pose("obstacle1", self.obstacle_pos, np.array([0.0, 0.0, 0.0, 1.0]))
+            self.sim.set_base_pose("obstacle1", self.obstacle1_pos, np.array([0.0, 0.0, 0.0, 1.0]))
+            self.sim.set_base_pose("obstacle2", self.obstacle2_pos, np.array([0.0, 0.0, 0.0, 1.0]))
+            self.sim.set_base_pose("obstacle3", self.obstacle3_pos, np.array([0.0, 0.0, 0.0, 1.0]))
+
             if self.orientation_task:
                 goal_orientation = euler_to_quaternion([self.goal[3], self.goal[4], 0])
                 self.sim.set_base_pose("target_orientation_mark", self.goal[:3], goal_orientation)
@@ -95,13 +105,19 @@ class Reach:
             )).astype(np.float32)
         return position
 
-    def _sample_obstacle(self) -> np.ndarray:
-        position = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+    def _sample_obstacles(self):
+        position1 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+        position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+        position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
-        while distance(position, self.goal) < 0.12:
-            position = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+        while distance(position1, self.goal) < 0.07:
+            position1 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+        while distance(position2, self.goal) < 0.07:
+            position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
+        while distance(position3, self.goal) < 0.07:
+            position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
-        return position
+        return position1, position2, position3
 
     def is_success(self, achieved_goal: np.ndarray, desired_goal: np.ndarray) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
