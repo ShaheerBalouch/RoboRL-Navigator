@@ -44,10 +44,7 @@ class Reach:
         self.orientation_range_low = np.array([-3, -0.8])
         self.orientation_range_high = np.array([-2, 0.4])
 
-        self.obstacle_range = goal_range+0.2
-
-        # self.obstacle_range_low = np.array([0.35, 0.0, 0.05])
-        # self.obstacle_range_high = np.array([0.75, 0.03, 0.05])
+        self.obstacle_range = goal_range
 
         self.obstacle_range_low = np.array([0.5 - (self.obstacle_range / 2), -self.obstacle_range / 2, 0.05])
         self.obstacle_range_high = np.array([0.5 + (self.obstacle_range / 2), self.obstacle_range / 2, 0.05])
@@ -110,11 +107,11 @@ class Reach:
         position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
         position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
-        while distance(position1, self.goal) < 0.07:
+        while distance(position1, self.goal) < 0.05:
             position1 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
-        while distance(position2, self.goal) < 0.07:
+        while distance(position2, self.goal) < 0.05:
             position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
-        while distance(position3, self.goal) < 0.07:
+        while distance(position3, self.goal) < 0.05:
             position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
         return position1, position2, position3
@@ -124,20 +121,20 @@ class Reach:
         result = np.array(d < self.distance_threshold, dtype=bool)
         return result
 
-    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.1, 0.1, 0.1])) -> np.ndarray:
+    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.1])) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
             goal_reward = -d.astype(np.float32)
 
-            dist_x, dist_y, dist_z = obstacle_dist
-            reward_x = np.clip(-(0.1-dist_x)/3, -0.1, 0.0)
-            reward_y = np.clip(-(0.1-dist_y)/3, -0.1, 0.0)
-            reward_z = np.clip(-(0.1-dist_z)/3, -0.1, 0.0)
-            dist_reward = (reward_x + reward_y + reward_z).astype(np.float32)
+            # dist_x, dist_y, dist_z = obstacle_dist
+            # reward_x = np.clip(-(0.1-dist_x)/3, -0.1, 0.0)
+            # reward_y = np.clip(-(0.1-dist_y)/3, -0.1, 0.0)
+            # reward_z = np.clip(-(0.1-dist_z)/3, -0.1, 0.0)
+            # dist_reward = (reward_x + reward_y + reward_z).astype(np.float32)
 
-            # dist_reward = np.clip(-(0.3-obstacle_dist).astype(np.float32), -0.3, 0.0)
+            dist_reward = np.clip(-(0.1-obstacle_dist).astype(np.float32), -0.1, 0.0)
 
             reward = dist_reward + goal_reward
             if goal_reward.shape == ():
