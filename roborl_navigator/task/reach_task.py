@@ -121,7 +121,7 @@ class Reach:
         result = np.array(d < self.distance_threshold, dtype=bool)
         return result
 
-    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.1])) -> np.ndarray:
+    def compute_reward(self, achieved_goal, desired_goal, info: Dict[str, Any], obstacle_dist=np.array([0.15])) -> np.ndarray:
         d = distance(achieved_goal, desired_goal, self.orientation_task)
         if self.reward_type == "sparse":
             return -np.array(d > self.distance_threshold, dtype=np.float32)
@@ -134,7 +134,7 @@ class Reach:
             # reward_z = np.clip(-(0.1-dist_z)/3, -0.1, 0.0)
             # dist_reward = (reward_x + reward_y + reward_z).astype(np.float32)
 
-            dist_reward = np.clip(-(0.1-obstacle_dist).astype(np.float32), -0.1, 0.0)
+            dist_reward = np.clip(-(0.15-obstacle_dist).astype(np.float32), -0.15, 0.0)
 
             reward = dist_reward + goal_reward
             if goal_reward.shape == ():

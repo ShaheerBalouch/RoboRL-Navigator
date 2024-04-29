@@ -65,6 +65,8 @@ class BulletPanda(Robot):
     @real_to_bullet
     def set_joint_angles(self, joint_values: np.ndarray) -> None:
         """Set the joint position of a body. Can induce collisions."""
+        self.sim.set_joint_angle(self.body_name, 9, 0.0)
+        self.sim.set_joint_angle(self.body_name, 10, 0.0)
         self.sim.set_joint_angles(self.body_name, joints=self.joint_indices, angles=joint_values)
 
     def set_joint_neutral(self) -> None:
