@@ -23,8 +23,13 @@ class PandaBulletEnv(BaseEnv):
         orientation_task: bool = False,
         distance_threshold: float = 0.05,
         goal_range: float = 0.3,
+        debug_mode: bool = False
     ) -> None:
-        self.sim = BulletSim(render_mode=render_mode, n_substeps=30, orientation_task=orientation_task)
+        self.sim = BulletSim(render_mode=render_mode,
+                             n_substeps=30,
+                             orientation_task=orientation_task,
+                             debug_mode=debug_mode)
+
         self.robot = BulletPanda(self.sim, orientation_task=orientation_task)
         self.task = Reach(
             self.sim,
@@ -80,8 +85,6 @@ class PandaBulletEnv(BaseEnv):
         observation = self._get_obs()
         # An episode is terminated if the agent has reached the target or collided with an object
         if self.sim.is_collision(self.obstacle_collision_margin):
-            print("COLLISION HAPPENED")
-            # time.sleep(10)
             terminated = True
             info = {"is_success": False, "is_collision": True}
         else:

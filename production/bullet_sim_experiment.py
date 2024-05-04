@@ -11,7 +11,7 @@ from stable_baselines3 import (
 )
 from roborl_navigator.environment.env_panda_bullet import PandaBulletEnv
 
-path = '../models/roborl-navigator/APR_28_5/model.zip'
+path = '../models/roborl-navigator/APR_30_1/model.zip'
 
 env = PandaBulletEnv(
     orientation_task=False,
@@ -24,8 +24,9 @@ model = TD3.load(
     replay_buffer_class=HerReplayBuffer,
 )
 
-sum_of_times = 0
 number_of_successes = 0
+number_of_collisions = 0
+number_of_timeouts = 0
 
 sim = env.sim
 
@@ -55,16 +56,16 @@ with open(filename, 'r', newline='') as csvfile:
             observation, reward, terminated, truncated, info = env.step(np.array(action[0]).astype(np.float32))
             if terminated:
                 if info.get('is_success'):
-                    print(number_of_successes)
                     number_of_successes += 1
 
                 break
         if not info.get('is_success'):
 
             if info.get('is_collision'):
-                print("FAILED DUE TO COLLISION")
+                number_of_collisions += 1
             else:
-                print("RAN OUT OF STEPS")
+                number_of_timeouts += 1
 
 print("NUMBER OF SUCCESSES: ", number_of_successes)
-
+print("NUMBER OF COLLISIONS: ", number_of_collisions)
+print("NUMBER OF TIMEOUTS: ", number_of_timeouts)

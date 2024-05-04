@@ -49,11 +49,6 @@ class Reach:
         self.obstacle_range_low = np.array([0.5 - (self.obstacle_range / 2), -self.obstacle_range / 2, 0.05])
         self.obstacle_range_high = np.array([0.5 + (self.obstacle_range / 2), self.obstacle_range / 2, 0.05])
 
-        self.sum_goal_reward = 0.0
-        self.step_count = 0
-        self.sum_dist_reward = 0.0
-        self.sum_total_reward = 0.0
-
         with self.sim.no_rendering():
             self.create_scene()
 
@@ -63,7 +58,6 @@ class Reach:
     def reset(self) -> None:
         self.goal = self._sample_goal()
         self.obstacle1_pos, self.obstacle2_pos, self.obstacle3_pos = self._sample_obstacles()
-        print("STEP COUNT: ", self.step_count)
 
         if not self.demonstration:
             self.sim.set_base_pose("target", self.goal[:3], np.array([0.0, 0.0, 0.0, 1.0]))
@@ -128,6 +122,8 @@ class Reach:
         else:
             goal_reward = -d.astype(np.float32)
 
+            # Vector distance reward function
+            #-----------------------------------------
             # dist_x, dist_y, dist_z = obstacle_dist
             # reward_x = np.clip(-(0.1-dist_x)/3, -0.1, 0.0)
             # reward_y = np.clip(-(0.1-dist_y)/3, -0.1, 0.0)
@@ -137,8 +133,6 @@ class Reach:
             dist_reward = np.clip(-(0.15-obstacle_dist).astype(np.float32), -0.15, 0.0)
 
             reward = dist_reward + goal_reward
-            if goal_reward.shape == ():
-                self.step_count += 1
 
             return reward
 

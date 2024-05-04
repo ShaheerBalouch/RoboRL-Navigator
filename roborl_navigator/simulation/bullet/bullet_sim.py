@@ -17,6 +17,7 @@ class BulletSim(Simulation):
         n_substeps: Optional[int] = 20,
         renderer: Optional[str] = "Tiny",
         orientation_task: Optional[bool] = False,
+        debug_mode: bool = False
     ) -> None:
         super().__init__(render_mode, n_substeps)
 
@@ -36,9 +37,15 @@ class BulletSim(Simulation):
                 raise ValueError("The 'renderer' argument is must be in {'Tiny', 'OpenGL'}")
         else:
             raise ValueError("The 'render' argument is must be in {'rgb_array', 'human'}")
+
+        self.debug_mode = debug_mode
+
         self.physics_client = bc.BulletClient(connection_mode=self.connection_mode, options=options)
         self.physics_client.configureDebugVisualizer(p.COV_ENABLE_WIREFRAME, 0)
         self.physics_client.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
+        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_GUI, int(self.debug_mode))
+        self.physics_client.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, int(self.debug_mode))
+
         self.n_substeps = n_substeps
         self.timestep = 1.0 / 500
         self.physics_client.setTimeStep(self.timestep)
@@ -47,110 +54,12 @@ class BulletSim(Simulation):
         self.physics_client.setGravity(0, 0, -9.81)
         self._bodies_idx = {}
 
-        self.DEBUG_MODE = False
-
         self.robot_body_name = "panda"
         self.robot_camera_link = 8
         self.camera_pos_local_offset = np.array([0.05, 0.0, 0.02])
         self.image_resolution_width = 128
         self.image_resolution_height = 72
         self.curr_euclid_dist = -1
-
-        # goal_range = 0.4
-        # self.x_low = 0.5 - (goal_range / 2)
-        # self.y_low = -goal_range / 2
-        # self.z_low = 0.05
-        #
-        # self.x_high = 0.5 + (goal_range / 2)
-        # self.y_high = goal_range / 2
-        # self.z_high = 0.05
-        #
-        # self.low_1 = np.array([self.x_low, self.y_low, self.z_low])
-        # self.low_2 = np.array([self.x_low, self.y_high, self.z_high])
-        # self.low_3 = np.array([self.x_high, self.y_low, self.z_high])
-        # self.low_4 = np.array([self.x_high, self.y_high, self.z_low])
-        #
-        # self.high_1 = np.array([self.x_high, self.y_high, self.z_high])
-        # self.high_2 = np.array([self.x_high, self.y_low, self.z_low])
-        # self.high_3 = np.array([self.x_low, self.y_high, self.z_low])
-        # self.high_4 = np.array([self.x_low, self.y_low, self.z_high])
-
-
-        # contact_point_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.5],
-        #                                                  radius=0.01)
-        #
-        # self._bodies_idx["low_1"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.low_1,
-        # )
-        #
-        # self._bodies_idx["low_2"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.low_2,
-        # )
-        #
-        # self._bodies_idx["low_3"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.low_3,
-        # )
-        #
-        # self._bodies_idx["low_4"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.low_4,
-        # )
-        #
-        # self._bodies_idx["high_1"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.high_1,
-        # )
-        #
-        # self._bodies_idx["high_2"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.high_2,
-        # )
-        #
-        # self._bodies_idx["high_3"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.high_3,
-        # )
-        #
-        # self._bodies_idx["high_4"] = self.physics_client.createMultiBody(
-        #     baseVisualShapeIndex=contact_point_visual_shape,
-        #     baseCollisionShapeIndex=-1,
-        #     baseMass=0.0,
-        #     basePosition=self.high_4,
-        # )
-        #
-        # self.physics_client.addUserDebugLine(self.low_1, self.high_2, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.low_1, self.high_3, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.low_1, self.high_4, [1, 0, 0])
-        #
-        # self.physics_client.addUserDebugLine(self.high_1, self.low_2, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.high_1, self.low_3, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.high_1, self.low_4, [1, 0, 0])
-        #
-        # self.physics_client.addUserDebugLine(self.high_2, self.low_3, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.high_3, self.low_2, [1, 0, 0])
-        #
-        # self.physics_client.addUserDebugLine(self.high_4, self.low_3, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.high_3, self.low_4, [1, 0, 0])
-        #
-        # self.physics_client.addUserDebugLine(self.high_2, self.low_4, [1, 0, 0])
-        # self.physics_client.addUserDebugLine(self.high_4, self.low_2, [1, 0, 0])
 
     def step(self) -> None:
         """Step the simulation."""
@@ -223,7 +132,6 @@ class BulletSim(Simulation):
 
         pixels = np.stack([x, y, z, h], axis=1)
         # filter out "infinite" depths
-        # pixels = pixels[z < 0.99]
         pixels[:, 2] = 2 * pixels[:, 2] - 1
 
         # turn pixels to world coordinates
@@ -244,7 +152,7 @@ class BulletSim(Simulation):
                 min_dist = dist
                 min_pos = points[i]
 
-        if self.DEBUG_MODE:
+        if self.debug_mode:
             self.set_base_pose("contact_point", min_pos, np.array([0, 0, 0, 1]))
             self.set_base_pose("ee_position", ee_position, np.array([0, 0, 0, 1]))
             self.physics_client.addUserDebugLine(ee_position, min_pos, [1, 0, 0], replaceItemUniqueId=self.lineId)
@@ -338,31 +246,74 @@ class BulletSim(Simulation):
         self.create_obstacle2(0.05, 0.05, 0.1)
         self.create_obstacle3(0.05, 0.05, 0.1)
 
-        if self.DEBUG_MODE:
-
-            contact_point_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.75], radius=0.01)
-            self._bodies_idx["contact_point"] = self.physics_client.createMultiBody(
-                baseVisualShapeIndex=contact_point_visual_shape,
-                baseCollisionShapeIndex=-1,
-                baseMass=0.0,
-                basePosition=np.zeros(3),
-            )
-
-            ee_position_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 0.75], radius=0.01)
-
-            self._bodies_idx["ee_position"] = self.physics_client.createMultiBody(
-                baseVisualShapeIndex=ee_position_visual_shape,
-                baseCollisionShapeIndex=-1,
-                baseMass=0.0,
-                basePosition=np.zeros(3)
-            )
-            self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
+        if self.debug_mode:
+            self.create_range_visualization()
+            self.create_depth_camera_visualization()
 
         if self.orientation_task:
             self.create_orientation_mark(np.zeros(3))
 
+    def create_range_visualization(self):
+
+        goal_range = 0.2
+        x_low = 0.5 - (goal_range / 2)
+        y_low = -goal_range / 2
+        z_low = 0.05
+
+        x_high = 0.5 + (goal_range / 2)
+        y_high = goal_range / 2
+        z_high = 0.05
+
+        low_1 = np.array([x_low, y_low, z_low])
+        low_2 = np.array([x_low, y_high, z_high])
+        low_3 = np.array([x_high, y_low, z_high])
+        low_4 = np.array([x_high, y_high, z_low])
+
+        high_1 = np.array([x_high, y_high, z_high])
+        high_2 = np.array([x_high, y_low, z_low])
+        high_3 = np.array([x_low, y_high, z_low])
+        high_4 = np.array([x_low, y_low, z_high])
+
+        self.physics_client.addUserDebugLine(low_1, high_2, [1, 0, 0])
+        self.physics_client.addUserDebugLine(low_1, high_3, [1, 0, 0])
+        self.physics_client.addUserDebugLine(low_1, high_4, [1, 0, 0])
+
+        self.physics_client.addUserDebugLine(high_1, low_2, [1, 0, 0])
+        self.physics_client.addUserDebugLine(high_1, low_3, [1, 0, 0])
+        self.physics_client.addUserDebugLine(high_1, low_4, [1, 0, 0])
+
+        self.physics_client.addUserDebugLine(high_2, low_3, [1, 0, 0])
+        self.physics_client.addUserDebugLine(high_3, low_2, [1, 0, 0])
+
+        self.physics_client.addUserDebugLine(high_4, low_3, [1, 0, 0])
+        self.physics_client.addUserDebugLine(high_3, low_4, [1, 0, 0])
+
+        self.physics_client.addUserDebugLine(high_2, low_4, [1, 0, 0])
+        self.physics_client.addUserDebugLine(high_4, low_2, [1, 0, 0])
+
+    def create_depth_camera_visualization(self) -> None:
+        contact_point_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[0, 0, 1, 0.75],
+                                                         radius=0.01)
+        self._bodies_idx["contact_point"] = self.physics_client.createMultiBody(
+            baseVisualShapeIndex=contact_point_visual_shape,
+            baseCollisionShapeIndex=-1,
+            baseMass=0.0,
+            basePosition=np.zeros(3),
+        )
+
+        ee_position_visual_shape = p.createVisualShape(shapeType=p.GEOM_SPHERE, rgbaColor=[1, 0, 0, 0.75], radius=0.01)
+
+        self._bodies_idx["ee_position"] = self.physics_client.createMultiBody(
+            baseVisualShapeIndex=ee_position_visual_shape,
+            baseCollisionShapeIndex=-1,
+            baseMass=0.0,
+            basePosition=np.zeros(3)
+        )
+        self.lineId = self.physics_client.addUserDebugLine(np.zeros(3), np.zeros(3))
+
     def remove_model(self, body_name):
         self.physics_client.removeBody(self._bodies_idx[body_name])
+
     def create_geometry(
         self,
         body_name: str,
@@ -491,14 +442,7 @@ class BulletSim(Simulation):
         )
 
     def is_collision(self, margin=0.022):
-        # ds = self.get_closest_dist(ee_position)[1]
         ds = self.curr_euclid_dist
         collision = ds < margin
         return collision
 
-        # Target Box Orientation Lines for Debug
-        # oid = self._bodies_idx["panda"]
-        # line_length = 30  # Length of the lines
-        # p.addUserDebugLine([0, 0, 0], [line_length, 0, 0], [1, 0, 0], parentObjectUniqueId=oid, parentLinkIndex=10)
-        # p.addUserDebugLine([0, 0, 0], [0, line_length, 0], [0, 1, 0], parentObjectUniqueId=oid, parentLinkIndex=10)
-        # p.addUserDebugLine([0, 0, 0], [0, 0, line_length], [0, 0, 1], parentObjectUniqueId=oid, parentLinkIndex=10)
