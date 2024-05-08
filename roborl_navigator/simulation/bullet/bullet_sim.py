@@ -242,9 +242,7 @@ class BulletSim(Simulation):
         self.create_plane(z_offset=-0.4)
         self.create_table(length=1.3, width=2, height=0.1)
         self.create_sphere(np.zeros(3))
-        self.create_obstacle(length=0.05, width=0.05, height=0.1)
-        self.create_obstacle2(0.05, 0.05, 0.1)
-        self.create_obstacle3(0.05, 0.05, 0.1)
+        self.create_obstacles(length=0.05, width=0.05, height=0.1)
 
         if self.debug_mode:
             self.create_range_visualization()
@@ -383,7 +381,7 @@ class BulletSim(Simulation):
             rgba_color=np.array([0.95, 0.95, 0.95, 1]),
         )
 
-    def create_obstacle(self, length: float, width: float, height: float) -> None:
+    def create_obstacles(self, length: float, width: float, height: float) -> None:
         self.create_box(
             body_name="obstacle1",
             half_extents=np.array([length, width, height]) / 2,
@@ -391,19 +389,17 @@ class BulletSim(Simulation):
             rgba_color=np.array([1, 0, 0, 1]),
         )
 
-    def create_obstacle2(self, length: float, width: float, height: float) -> None:
         self.create_box(
             body_name="obstacle2",
             half_extents=np.array([length, width, height]) / 2,
-            position=np.array([0.45, 0.0, height/2]),
+            position=np.array([0.45, 0.0, height / 2]),
             rgba_color=np.array([1, 0, 0, 1]),
         )
 
-    def create_obstacle3(self, length: float, width: float, height: float) -> None:
         self.create_box(
             body_name="obstacle3",
             half_extents=np.array([length, width, height]) / 2,
-            position=np.array([0.45, 0.0, height/2]),
+            position=np.array([0.45, 0.0, height / 2]),
             rgba_color=np.array([1, 0, 0, 1]),
         )
 
