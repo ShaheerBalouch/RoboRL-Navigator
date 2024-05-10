@@ -131,7 +131,6 @@ class BulletSim(Simulation):
         h = np.ones_like(z)
 
         pixels = np.stack([x, y, z, h], axis=1)
-        # filter out "infinite" depths
         pixels[:, 2] = 2 * pixels[:, 2] - 1
 
         # turn pixels to world coordinates
@@ -142,7 +141,6 @@ class BulletSim(Simulation):
         return points
 
     def return_closest_dist(self, ee_position, points):
-
         min_dist = 1000
         min_pos = np.zeros(3)
         for i in range(0, len(points), 50):

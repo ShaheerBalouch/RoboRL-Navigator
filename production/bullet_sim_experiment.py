@@ -30,7 +30,7 @@ number_of_timeouts = 0
 
 sim = env.sim
 
-filename = "random_goals_005_00.csv"
+filename = "random_goals_005_01.csv"
 
 with open(filename, 'r', newline='') as csvfile:
     csv_reader = csv.reader(csvfile)

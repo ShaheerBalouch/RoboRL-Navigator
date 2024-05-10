@@ -19,7 +19,6 @@ class BaseEnv(gym.Env):
 
         robot_pos_shape = observation["robot_pos"].shape
         obstacle_dist_vector_shape = observation["obstacle_dist_vector"].shape
-        # obstacle_dist_euclid_shape = observation["obstacle_dist_euclid"].shape
         achieved_goal_shape = observation["achieved_goal"].shape
         desired_goal_shape = observation["desired_goal"].shape
 
@@ -27,7 +26,6 @@ class BaseEnv(gym.Env):
             dict(
                 robot_pos=gym.spaces.Box(-10.0, 10.0, shape=robot_pos_shape, dtype=np.float32),
                 obstacle_dist_vector=gym.spaces.Box(-10.0, 10.0, shape=obstacle_dist_vector_shape, dtype=np.float32),
-                # obstacle_dist_euclid=gym.spaces.Box(-10.0, 10.0, shape=obstacle_dist_euclid_shape, dtype=np.float32),
                 desired_goal=gym.spaces.Box(-10.0, 10.0, shape=achieved_goal_shape, dtype=np.float32),
                 achieved_goal=gym.spaces.Box(-10.0, 10.0, shape=desired_goal_shape, dtype=np.float32),
             )
@@ -42,14 +40,12 @@ class BaseEnv(gym.Env):
 
         robot_pos = self.robot.get_obs().astype(np.float32)
         obstacle_dist_vector = obstacle_dist[0].astype(np.float32)
-        # obstacle_dist_euclid = obstacle_dist[1].astype(np.float32)
         achieved_goal = self.task.get_achieved_goal().astype(np.float32)
         desired_goal = self.task.get_goal().astype(np.float32)
 
         return {
             "robot_pos": robot_pos,
             "obstacle_dist_vector": obstacle_dist_vector,
-            # "obstacle_dist_euclid": obstacle_dist_euclid,
             "achieved_goal": achieved_goal,
             "desired_goal": desired_goal,
         }

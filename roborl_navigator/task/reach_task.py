@@ -38,7 +38,6 @@ class Reach:
         self.distance_threshold = distance_threshold
         self.demonstration = demonstration
 
-        # min X can be 0.07
         self.goal_range_low = np.array([0.5 - (goal_range / 2), -goal_range / 2, 0.05])
         self.goal_range_high = np.array([0.5 + (goal_range / 2), goal_range / 2, goal_range / 2])
         self.orientation_range_low = np.array([-3, -0.8])
@@ -101,11 +100,13 @@ class Reach:
         position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
         position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
-        while distance(position1, self.goal) < 0.05:
+        min_dist_to_goal = 0.05
+
+        while distance(position1, self.goal) < min_dist_to_goal:
             position1 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
-        while distance(position2, self.goal) < 0.05:
+        while distance(position2, self.goal) < min_dist_to_goal:
             position2 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
-        while distance(position3, self.goal) < 0.05:
+        while distance(position3, self.goal) < min_dist_to_goal:
             position3 = np.random.uniform(self.obstacle_range_low, self.obstacle_range_high)
 
         return position1, position2, position3
@@ -125,9 +126,9 @@ class Reach:
             # Vector distance reward function
             #-----------------------------------------
             # dist_x, dist_y, dist_z = obstacle_dist
-            # reward_x = np.clip(-(0.1-dist_x)/3, -0.1, 0.0)
-            # reward_y = np.clip(-(0.1-dist_y)/3, -0.1, 0.0)
-            # reward_z = np.clip(-(0.1-dist_z)/3, -0.1, 0.0)
+            # reward_x = np.clip(-(0.15-dist_x)/3, -0.15, 0.0)
+            # reward_y = np.clip(-(0.15-dist_y)/3, -0.15, 0.0)
+            # reward_z = np.clip(-(0.15-dist_z)/3, -0.15, 0.0)
             # dist_reward = (reward_x + reward_y + reward_z).astype(np.float32)
 
             dist_reward = np.clip(-(0.15-obstacle_dist).astype(np.float32), -0.15, 0.0)
